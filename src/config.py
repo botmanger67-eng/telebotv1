@@ -29,12 +29,19 @@ def _get_env(key: str, default: str | None = None, required: bool = True) -> str
 BOT_TOKEN: Final[str] = _get_env("BOT_TOKEN")
 DEEPSEEK_API_KEY: Final[str] = _get_env("DEEPSEEK_API_KEY")
 
+# ── DeepSeek API Configuration (✅ FIXED - Added missing variables) ─────
+DEEPSEEK_BASE_URL: Final[str] = _get_env("DEEPSEEK_BASE_URL", "https://api.deepseek.com", required=False)
+DEEPSEEK_MODEL: Final[str] = _get_env("DEEPSEEK_MODEL", "deepseek-chat", required=False)
+
+# ── GitHub Configuration (for github_tools.py) ──────────────────────────
+GITHUB_TOKEN: Final[str] = _get_env("GITHUB_TOKEN", "", required=False)
+GITHUB_API_BASE_URL: Final[str] = _get_env("GITHUB_API_BASE_URL", "https://api.github.com", required=False)
+
 # ── Optional / Default Configuration ─────────────────────────────────────
 DATABASE_PATH: Final[str] = _get_env("DATABASE_PATH", "bot.db", required=False)
 SECRET_KEY: Final[str] = _get_env("SECRET_KEY", secrets.token_urlsafe(32), required=False)
 
 # ── Internal Safety Check ───────────────────────────────────────────────
-# Ensure that a stable secret key is used in production (generate once, store in .env)
 if not os.getenv("SECRET_KEY"):
     import logging
     logging.warning(
@@ -46,6 +53,10 @@ if not os.getenv("SECRET_KEY"):
 __all__ = [
     "BOT_TOKEN",
     "DEEPSEEK_API_KEY",
+    "DEEPSEEK_BASE_URL",      # ✅ Added
+    "DEEPSEEK_MODEL",         # ✅ Added
+    "GITHUB_TOKEN",           # ✅ Added
+    "GITHUB_API_BASE_URL",    # ✅ Added
     "DATABASE_PATH",
     "SECRET_KEY",
 ]
