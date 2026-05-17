@@ -1,13 +1,13 @@
 import asyncio
 import logging
-from typing import Optional
+from typing import Optional, List, Dict
 
-from duckduckgo_search import DDGS  # type: ignore
+from duckduckgo_search import DDGS
 
 logger = logging.getLogger(__name__)
 
-# Default safe search setting. Can be overridden via config or environment.
-DEFAULT_SAFE_SEARCH = "moderate"  # "off", "moderate", "strict"
+# Default safe search setting
+DEFAULT_SAFE_SEARCH = "moderate"
 
 # Maximum number of results per query
 MAX_RESULTS = 5
@@ -21,20 +21,7 @@ def _web_search_sync(
     max_results: int = MAX_RESULTS,
     safe_search: str = DEFAULT_SAFE_SEARCH,
 ) -> list[dict[str, str]]:
-    """Perform synchronous DuckDuckGo web search.
-
-    Args:
-        query: Search query string.
-        max_results: Maximum number of results to return.
-        safe_search: Safe search setting ('off', 'moderate', 'strict').
-
-    Returns:
-        List of dicts with keys 'title', 'href', 'body' (snippet).
-        Returns empty list on error.
-
-    Raises:
-        ValueError: If query is empty or max_results invalid.
-    """
+    """Perform synchronous DuckDuckGo web search."""
     if not query or not query.strip():
         raise ValueError("Search query must not be empty.")
     if max_results < 1:
@@ -45,13 +32,12 @@ def _web_search_sync(
             results = list(
                 ddgs.text(
                     keywords=query,
-                    region="wt-wt",  # worldwide
+                    region="wt-wt",
                     safesearch=safe_search,
-                    timelimit=None,  # no time limit
+                    timelimit=None,
                     max_results=max_results,
                 )
             )
-        # Normalize keys: 'href' is the URL, 'body' is the snippet.
         return [
             {
                 "title": r.get("title", ""),
@@ -70,20 +56,7 @@ def _news_search_sync(
     max_results: int = MAX_RESULTS,
     safe_search: str = DEFAULT_SAFE_SEARCH,
 ) -> list[dict[str, str]]:
-    """Perform synchronous DuckDuckGo news search.
-
-    Args:
-        query: Search query string.
-        max_results: Maximum number of results to return.
-        safe_search: Safe search setting (same as web).
-
-    Returns:
-        List of dicts with keys 'title', 'href', 'body', 'date', 'source'.
-        Returns empty list on error.
-
-    Raises:
-        ValueError: If query is empty or max_results invalid.
-    """
+    """Perform synchronous DuckDuckGo news search."""
     if not query or not query.strip():
         raise ValueError("Search query must not be empty.")
     if max_results < 1:
@@ -120,20 +93,7 @@ def _image_search_sync(
     max_results: int = MAX_RESULTS,
     safe_search: str = DEFAULT_SAFE_SEARCH,
 ) -> list[dict[str, str]]:
-    """Perform synchronous DuckDuckGo image search.
-
-    Args:
-        query: Search query string.
-        max_results: Maximum number of results to return.
-        safe_search: Safe search setting.
-
-    Returns:
-        List of dicts with keys 'title', 'image', 'thumbnail', 'url', 'height', 'width'.
-        Returns empty list on error.
-
-    Raises:
-        ValueError: If query is empty or max_results invalid.
-    """
+    """Perform synchronous DuckDuckGo image search."""
     if not query or not query.strip():
         raise ValueError("Search query must not be empty.")
     if max_results < 1:
@@ -170,21 +130,14 @@ def _image_search_sync(
         return []
 
 
+# ── Async Wrappers ─────────────────────────────────────────────────────
+
 async def web_search(
     query: str,
     max_results: int = MAX_RESULTS,
     safe_search: str = DEFAULT_SAFE_SEARCH,
 ) -> list[dict[str, str]]:
-    """Asynchronously perform DuckDuckGo web search.
-
-    Args:
-        query: Search query string.
-        max_results: Maximum number of results to return.
-        safe_search: Safe search setting.
-
-    Returns:
-        List of dicts with title, href, body.
-    """
+    """Asynchronously perform DuckDuckGo web search."""
     return await asyncio.to_thread(_web_search_sync, query, max_results, safe_search)
 
 
@@ -193,16 +146,7 @@ async def news_search(
     max_results: int = MAX_RESULTS,
     safe_search: str = DEFAULT_SAFE_SEARCH,
 ) -> list[dict[str, str]]:
-    """Asynchronously perform DuckDuckGo news search.
-
-    Args:
-        query: Search query string.
-        max_results: Maximum number of results to return.
-        safe_search: Safe search setting.
-
-    Returns:
-        List of dicts with title, href, body, date, source.
-    """
+    """Asynchronously perform DuckDuckGo news search."""
     return await asyncio.to_thread(_news_search_sync, query, max_results, safe_search)
 
 
@@ -211,14 +155,85 @@ async def image_search(
     max_results: int = MAX_RESULTS,
     safe_search: str = DEFAULT_SAFE_SEARCH,
 ) -> list[dict[str, str]]:
-    """Asynchronously perform DuckDuckGo image search.
+    """Asynchronously perform DuckDuckGo image search."""
+    return await asyncio.to_thread(_image_search_sync, query, max_results, safe_search)
+
+
+# ── ✅ FIXED: Wrapper Functions (main.py ke imports ke liye) ───────────
+
+async def get_weather(city: str) -> str:
+    """Get current weather for a city using DuckDuckGo search.
 
     Args:
-        query: Search query string.
-        max_results: Maximum number of results to return.
-        safe_search: Safe search setting.
+        city: City name to search weather for.
 
     Returns:
-        List of dicts with title, image, thumbnail, url, height, width.
+        Formatted weather string.
     """
-    return await asyncio.to_thread(_image_search_sync, query, max_results, safe_search)
+    try:
+        results = await web_search(f"weather {city} today temperature celsius")
+        if results:
+            return f"🌤 **Weather for {city.title()}:**\n\n{results[0]['body']}\n\n🔗 {results[0]['href']}"
+        return f"❌ No weather info found for **{city}**."
+    except Exception as e:
+        logger.error(f"Weather fetch error for {city}: {e}")
+        return "❌ Could not fetch weather data. Please try again."
+
+
+async def translate_text(text: str, target_lang: str) -> str:
+    """Translate text to target language using DuckDuckGo search.
+
+    Args:
+        text: Text to translate.
+        target_lang: Target language name or code (e.g., 'Spanish', 'French', 'es', 'fr').
+
+    Returns:
+        Translated text string.
+    """
+    try:
+        results = await web_search(f"translate '{text}' to {target_lang}")
+        if results:
+            return f"🌐 **Translation ({target_lang}):**\n\n{results[0]['body']}"
+        return "❌ Translation failed. Please check language name and try again."
+    except Exception as e:
+        logger.error(f"Translation error: {e}")
+        return "❌ Translation service unavailable. Please try again later."
+
+
+async def get_news(category: str = "general") -> List[Dict[str, str]]:
+    """Get latest news for a category.
+
+    Args:
+        category: News category (e.g., 'technology', 'sports', 'business', 'general').
+
+    Returns:
+        List of news article dicts with title, href, body, date, source.
+    """
+    try:
+        if category.lower() == "general":
+            query = "latest world news today"
+        else:
+            query = f"latest {category} news today"
+        return await news_search(query, max_results=5)
+    except Exception as e:
+        logger.error(f"News fetch error for {category}: {e}")
+        return []
+
+
+async def get_image(description: str) -> Optional[str]:
+    """Get image URL for a description.
+
+    Args:
+        description: Image description to search for.
+
+    Returns:
+        Image URL string if found, None otherwise.
+    """
+    try:
+        results = await image_search(description, max_results=1)
+        if results:
+            return results[0]['image']
+        return None
+    except Exception as e:
+        logger.error(f"Image search error for '{description}': {e}")
+        return None
